@@ -13,6 +13,7 @@ import (
 	"taskflow/internal/db"
 	"taskflow/internal/middleware"
 	"taskflow/internal/project"
+	"taskflow/internal/task"
 	"taskflow/internal/user"
 
 	"github.com/gin-gonic/gin"
@@ -72,6 +73,15 @@ func main() {
 	authRoutes.GET("/projects/:id", projHandler.GetByID)
 	authRoutes.PATCH("/projects/:id", projHandler.Update)
 	authRoutes.DELETE("/projects/:id", projHandler.Delete)
+
+	taskRepo := task.NewRepository(database)
+	taskService := task.NewService(taskRepo)
+	taskHandler := task.NewHandler(taskService)
+
+	authRoutes.POST("/tasks", taskHandler.Create)
+	authRoutes.PATCH("/tasks/:id/assign", taskHandler.Assign)
+	authRoutes.PATCH("/tasks/:id/status", taskHandler.UpdateStatus)
+	authRoutes.GET("/tasks", taskHandler.List)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
