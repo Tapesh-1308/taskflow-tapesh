@@ -55,7 +55,6 @@ export default function TaskDetailModal({ task, open, onOpenChange }: Props) {
             changes.assignee_id = form.assignee_id;
         }
 
-        // 🔥 FIXED date comparison
         if (formatDate(form.due_date) !== formatDate(task.due_date)) {
             changes.due_date = form.due_date;
         }
@@ -79,7 +78,8 @@ export default function TaskDetailModal({ task, open, onOpenChange }: Props) {
 
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["tasks", task.id, task.status],
+                queryKey: ["tasks"],
+                exact: false,
             });
             onOpenChange(false);
         },

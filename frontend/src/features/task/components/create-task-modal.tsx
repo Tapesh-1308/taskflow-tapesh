@@ -20,30 +20,25 @@ export function CreateTaskModal({ projectId }: { projectId: string }) {
 
     const mutation = useMutation({
         mutationFn: taskApi.create,
-
-        // 🔥 OPTIMISTIC UPDATE
         onMutate: async (newTask) => {
             await queryClient.cancelQueries({
-                queryKey: ["project", projectId],
+                queryKey: ["tasks", projectId],
             });
 
-            const prev = queryClient.getQueryData(["project", projectId]);
+            const prev = queryClient.getQueryData(["tasks", projectId]);
 
-            queryClient.setQueryData(["project", projectId], (old: any) => {
+            queryClient.setQueryData(["tasks", projectId], (old: any) => {
                 if (!old) return old;
 
-                return {
+                return [
                     ...old,
-                    Tasks: [
-                        ...old.Tasks,
-                        {
-                            id: "temp-" + Date.now(),
-                            title: newTask.title,
-                            status: "todo",
-                            project_id: projectId,
-                        },
-                    ],
-                };
+                    {
+                        id: "temp-" + Date.now(),
+                        title: newTask.title,
+                        status: "todo",
+                        project_id: projectId,
+                    },
+                ];
             });
 
             return { prev };
@@ -55,8 +50,10 @@ export function CreateTaskModal({ projectId }: { projectId: string }) {
 
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ["project", projectId],
+                queryKey: ["tasks", projectId],
+                exact: false,
             });
+
             setTitle("");
             setOpen(false);
         },

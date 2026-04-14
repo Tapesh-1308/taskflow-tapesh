@@ -11,9 +11,10 @@ export const taskApi = {
             body: JSON.stringify(data),
         }),
 
-    create: (data: { title: string; project_id: string }) =>
-        apiClient.request("/projects/" + data.project_id + "/tasks", {
+    create: (data: { title: string; project_id: string }) => {
+        return apiClient.request("/projects/" + data.project_id + "/tasks", {
             method: "POST",
             body: JSON.stringify(data),
-        }),
+        })
+    }
 };
