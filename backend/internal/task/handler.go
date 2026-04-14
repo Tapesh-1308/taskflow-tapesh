@@ -18,12 +18,15 @@ func NewHandler(s Service, log *slog.Logger) *Handler {
 }
 
 func (h *Handler) Create(c *gin.Context) {
+	h.log.Info("Create task request received")
+
 	var body struct {
 		Title     string `json:"title"`
 		ProjectID string `json:"project_id"`
 	}
 
 	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Warn("Create task validation failed", "error", err)
 		c.JSON(400, gin.H{"error": "invalid"})
 		return
 	}
@@ -32,10 +35,12 @@ func (h *Handler) Create(c *gin.Context) {
 
 	task, err := h.service.Create(c, body.Title, body.ProjectID, userID)
 	if err != nil {
+		h.log.Error("Create task failed", "error", err, "title", body.Title, "projectID", body.ProjectID, "userID", userID)
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
+	h.log.Info("Task created successfully", "id", task.ID, "title", body.Title)
 	c.JSON(201, task)
 }
 
