@@ -58,9 +58,9 @@ export default function ProjectsPage() {
             <div className="space-y-2">
                 {projects?.map((project: any) => (
                     <ProjectRow
-                        key={project.ID}
+                        key={project.id}
                         project={project}
-                        onDelete={(id) => deleteMutation.mutate(id)}
+                        onDelete={() => deleteMutation.mutate(project?.id)}
                         isDeleting={deleteMutation.isPending}
                     />
                 ))}

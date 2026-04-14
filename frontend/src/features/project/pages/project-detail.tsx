@@ -21,7 +21,7 @@ export default function ProjectDetailPage() {
         queryKey: ["project", id],
         queryFn: () => projectApi.getById(id!),
         enabled: !!id,
-    });
+    });    
 
     // TASKS
     const { data: tasks = [], isLoading: tasksLoading } = useQuery({
@@ -55,13 +55,13 @@ export default function ProjectDetailPage() {
                     setAssignee={setAssignee}
                 />
 
-                <CreateTaskModal projectId={project.id} />
+                <CreateTaskModal projectId={project?.id} />
             </div>
 
             {tasksLoading ? (
                 <div className="text-gray-500">Loading tasks...</div>
             ) : (
-                <TaskList tasks={tasks || []} projectId={project.id} />
+                <TaskList tasks={tasks || []} projectId={project?.id} />
             )}
         </div>
     );

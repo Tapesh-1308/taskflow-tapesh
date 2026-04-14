@@ -29,14 +29,14 @@ export function EditProjectModal({ project }: any) {
     const { register, handleSubmit } = useForm({
         resolver: zodResolver(schema),
         defaultValues: {
-            name: project.Name,
-            description: project.Description,
+            name: project.name,
+            description: project.description,
         },
     });
 
     const mutation = useMutation({
         mutationFn: (data: any) =>
-            projectApi.update(project.ID, data),
+            projectApi.update(project.id, data),
 
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["projects"] });

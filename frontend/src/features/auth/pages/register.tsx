@@ -44,8 +44,13 @@ export default function RegisterPage() {
     });
 
     const onSubmit = (data: FormData) => {
-        setError("");
-        mutation.mutate(data);
+        try {
+            setError("");
+            mutation.mutate(data);
+            navigate("/login")
+        } catch (err: any) {
+            setError(err.message);
+        }
     };
 
     return (

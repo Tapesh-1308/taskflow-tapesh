@@ -40,10 +40,13 @@ export class ApiClient {
             // auto logout on unauthorized
             if (res.status === 401) {
                 this.clearToken();
-            }
+                throw new Error("You don't have access to this project")
+            } else if (res.status === 404) {
+                throw new Error("Oops! project not found :(")
+            }           
 
             const error = await res.json().catch(() => ({}));
-            throw new Error(error.message || "Something went wrong");
+            throw new Error(error.message || res.statusText);
         }
 
         return res.json();

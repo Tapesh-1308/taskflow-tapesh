@@ -11,6 +11,7 @@ import DeleteProjectDialog from "./delete-project-dialog";
 import { EditProjectModal } from "./edit-project-modal";
 
 export default function ProjectActions({ project, onDelete }: any) {
+    
     const [open, setOpen] = useState(false);
 
     return (
@@ -41,7 +42,7 @@ export default function ProjectActions({ project, onDelete }: any) {
             <DeleteProjectDialog
                 open={open}
                 onOpenChange={setOpen}
-                onConfirm={() => onDelete(project.ID)}
+                onConfirm={() => onDelete(project.id)}
             />
         </>
     );

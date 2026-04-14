@@ -46,11 +46,12 @@ export function CreateProjectModal() {
 
             const prev = queryClient.getQueryData(["projects"]);
 
-            queryClient.setQueryData(["projects"], (old: Array<Object> = []) =>
-                old?.length
-                    ? [...old, { id: "temp", ...newProject }]
-                    : [{ id: "temp", ...newProject }],
-            );
+            queryClient.setQueryData(["projects"], (old: Array<Object> = []) => old?.length ? [
+                ...old,
+                { id: "temp", ...newProject },
+            ] : [
+                { id: "temp", ...newProject },
+            ]);
 
             return { prev };
         },
