@@ -2,10 +2,8 @@ package project
 
 import (
 	"context"
-	"fmt"
-	"time"
-
 	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,12 +44,8 @@ func (r *repository) Create(ctx context.Context, p *Project) error {
 func (r *repository) GetByID(ctx context.Context, id string) (*ProjectWithUser, error) {
 	query := `
 		SELECT 
-			p.id, 
-			p.name, 
-			p.description, 
-			p.created_at,
-			u.id,
-			u.name
+			p.id, p.name, p.description, p.created_at,
+			u.id, u.name
 		FROM projects p
 		LEFT JOIN users u ON u.id = p.owner_id
 		WHERE p.id = $1
@@ -70,22 +64,18 @@ func (r *repository) GetByID(ctx context.Context, id string) (*ProjectWithUser, 
 		&ownerName,
 	)
 
-	var owner UserInfo
-	if ownerID != nil && ownerName != nil {
-		owner = UserInfo{
-			ID:   *ownerID,
-			Name: *ownerName,
-		}
-	}
-
-	p.Owner = owner
-	fmt.Println("ERROR::: ", p)
-
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if ownerID != nil && ownerName != nil {
+		p.Owner = UserInfo{
+			ID:   *ownerID,
+			Name: *ownerName,
+		}
 	}
 
 	return &p, nil
@@ -94,12 +84,8 @@ func (r *repository) GetByID(ctx context.Context, id string) (*ProjectWithUser, 
 func (r *repository) GetUserProjects(ctx context.Context, userID string) ([]ProjectWithUser, error) {
 	query := `
 		SELECT DISTINCT 
-			p.id, 
-			p.name, 
-			p.description, 
-			p.created_at,
-			u.id,
-			u.name
+			p.id, p.name, p.description, p.created_at,
+			u.id, u.name
 		FROM projects p
 		LEFT JOIN tasks t ON t.project_id = p.id
 		LEFT JOIN users u ON u.id = p.owner_id
@@ -107,9 +93,7 @@ func (r *repository) GetUserProjects(ctx context.Context, userID string) ([]Proj
 	`
 
 	rows, err := r.db.Query(ctx, query, userID)
-	fmt.Println(query, userID)
 	if err != nil {
-		fmt.Println("ERROR,", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -118,22 +102,33 @@ func (r *repository) GetUserProjects(ctx context.Context, userID string) ([]Proj
 
 	for rows.Next() {
 		var p ProjectWithUser
+		var ownerID, ownerName *string
+
 		err := rows.Scan(
 			&p.ID,
 			&p.Name,
 			&p.Description,
 			&p.CreatedAt,
-			&p.Owner.ID,
-			&p.Owner.Name,
+			&ownerID,
+			&ownerName,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		if ownerID != nil && ownerName != nil {
+			p.Owner = UserInfo{
+				ID:   *ownerID,
+				Name: *ownerName,
+			}
+		}
+
 		projects = append(projects, p)
 	}
 
 	return projects, nil
 }
+
 func (r *repository) Update(ctx context.Context, p *ProjectWithUser) error {
 	query := `
 		UPDATE projects
@@ -182,17 +177,27 @@ func (r *repository) GetProjectWithTasks(ctx context.Context, id string) (*Proje
 	projectSet := false
 
 	for rows.Next() {
-		var projectID, projectName string
-		var projectDesc *string
-		var ownerID, ownerName string
-		var createdAt time.Time
 
-		var taskID, taskTitle, taskStatus, taskPriority string
-		var taskDesc *string
-		var projectID2, assigneeID *string
-		var assigneeName *string
-		var dueDate *time.Time
-		var taskCreatedAt, taskUpdatedAt time.Time
+		var (
+			projectID   string
+			projectName string
+			projectDesc *string
+			ownerID     string
+			ownerName   string
+			createdAt   time.Time
+
+			taskID        *string
+			taskTitle     *string
+			taskStatus    *string
+			taskPriority  *string
+			taskDesc      *string
+			projectID2    *string
+			assigneeID    *string
+			assigneeName  *string
+			dueDate       *time.Time
+			taskCreatedAt *time.Time
+			taskUpdatedAt *time.Time
+		)
 
 		err := rows.Scan(
 			&projectID,
@@ -218,7 +223,6 @@ func (r *repository) GetProjectWithTasks(ctx context.Context, id string) (*Proje
 			return nil, err
 		}
 
-		// Set project fields only once
 		if !projectSet {
 			result.ID = projectID
 			result.Name = projectName
@@ -228,26 +232,30 @@ func (r *repository) GetProjectWithTasks(ctx context.Context, id string) (*Proje
 			projectSet = true
 		}
 
-		// Skip NULL task rows (LEFT JOIN case)
-		if taskID != "" && !taskMap[taskID] {
+		if taskID != nil && *taskID != "" && !taskMap[*taskID] {
+
 			var assignee *UserInfo
-			if assigneeID != nil && *assigneeID != "" {
-				assignee = &UserInfo{ID: *assigneeID, Name: *assigneeName}
+			if assigneeID != nil && assigneeName != nil {
+				assignee = &UserInfo{
+					ID:   *assigneeID,
+					Name: *assigneeName,
+				}
 			}
 
 			result.Tasks = append(result.Tasks, Task{
-				ID:          taskID,
-				Title:       taskTitle,
+				ID:          *taskID,
+				Title:       deref(taskTitle),
 				Description: taskDesc,
-				Status:      taskStatus,
-				Priority:    taskPriority,
-				ProjectID:   *projectID2,
+				Status:      deref(taskStatus),
+				Priority:    deref(taskPriority),
+				ProjectID:   deref(projectID2),
 				Assignee:    assignee,
 				DueDate:     dueDate,
-				CreatedAt:   taskCreatedAt,
-				UpdatedAt:   taskUpdatedAt,
+				CreatedAt:   derefTime(taskCreatedAt),
+				UpdatedAt:   derefTime(taskUpdatedAt),
 			})
-			taskMap[taskID] = true
+
+			taskMap[*taskID] = true
 		}
 	}
 
@@ -255,10 +263,23 @@ func (r *repository) GetProjectWithTasks(ctx context.Context, id string) (*Proje
 		return nil, err
 	}
 
-	// Check if project was found
 	if result.ID == "" {
 		return nil, pgx.ErrNoRows
 	}
 
 	return &result, nil
+}
+
+func deref(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
+func derefTime(t *time.Time) time.Time {
+	if t != nil {
+		return *t
+	}
+	return time.Time{}
 }
