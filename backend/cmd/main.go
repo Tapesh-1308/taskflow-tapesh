@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,21 +10,35 @@ import (
 
 	"taskflow/internal/config"
 	"taskflow/internal/db"
+	"taskflow/internal/logger"
 	"taskflow/internal/middleware"
 	"taskflow/internal/project"
 	"taskflow/internal/task"
 	"taskflow/internal/user"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	cfg := config.LoadConfig()
 
+	// Logger init
+	log := logger.GetLogger()
+
 	// DB init
 	database := db.NewDB(cfg.DBUrl)
 
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -40,15 +53,16 @@ func main() {
 
 	// Start server in goroutine
 	go func() {
-		log.Println("Server running on port", cfg.Port)
+		log.Info("Server running on port", "port", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			log.Error("Server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	userRepo := user.NewRepository(database)
-	userService := user.NewService(userRepo, cfg)
-	userHandler := user.NewHandler(userService)
+	userRepo := user.NewRepository(database, log)
+	userService := user.NewService(userRepo, cfg, log)
+	userHandler := user.NewHandler(userService, log)
 
 	router.POST("/auth/register", userHandler.Register)
 	router.POST("/auth/login", userHandler.Login)
@@ -58,15 +72,19 @@ func main() {
 
 	authRoutes.GET("/me", func(c *gin.Context) {
 		userID, _ := c.Get("user_id")
+		userName, _ := c.Get("name")
 
 		c.JSON(200, gin.H{
 			"user_id": userID,
+			"name":    userName,
 		})
 	})
 
-	projRepo := project.NewRepository(database)
-	projService := project.NewService(projRepo)
-	projHandler := project.NewHandler(projService)
+	authRoutes.GET("/users", userHandler.GetAllUsers)
+
+	projRepo := project.NewRepository(database, log)
+	projService := project.NewService(projRepo, log)
+	projHandler := project.NewHandler(projService, log)
 
 	authRoutes.POST("/projects", projHandler.Create)
 	authRoutes.GET("/projects", projHandler.List)
@@ -75,29 +93,31 @@ func main() {
 	authRoutes.DELETE("/projects/:id", projHandler.Delete)
 
 	taskRepo := task.NewRepository(database)
-	taskService := task.NewService(taskRepo)
-	taskHandler := task.NewHandler(taskService)
+	taskService := task.NewService(taskRepo, log)
+	taskHandler := task.NewHandler(taskService, log)
 
-	authRoutes.POST("/tasks", taskHandler.Create)
-	authRoutes.PATCH("/tasks/:id/assign", taskHandler.Assign)
-	authRoutes.PATCH("/tasks/:id/status", taskHandler.UpdateStatus)
-	authRoutes.GET("/tasks", taskHandler.List)
+	authRoutes.GET("/projects/:id/tasks", taskHandler.ListByProject)
+	authRoutes.POST("/projects/:id/tasks", taskHandler.Create)
+
+	authRoutes.PATCH("/tasks/:id", taskHandler.Update)
+	authRoutes.DELETE("/tasks/:id", taskHandler.Delete)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	log.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		log.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
 	database.Close()
 
-	log.Println("Server exited properly")
+	log.Info("Server exited properly")
 }
