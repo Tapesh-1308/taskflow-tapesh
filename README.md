@@ -528,6 +528,12 @@ Content-Type: application/json
 
 ### Honest Assessment
 
+Honestly speaking, backend-wise Go was the preferred choice, but I already had experience in Python and only basic knowledge of Go. Still, I built it in Go so that I could learn it as well.
+
+Similarly, this is my first-ever TypeScript project in my life. Thanks to AI, I was able to build it, although there’s still a lot of improvement needed. I couldn’t dedicate as much time to the project as I wanted to.
+
+I’m thinking of making improvements after submitting it.
+
 **What Went Well:**
 - Clean separation of concerns makes the codebase maintainable
 - Structured logging from the start will save debugging time later

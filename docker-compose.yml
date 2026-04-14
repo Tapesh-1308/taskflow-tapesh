@@ -33,6 +33,32 @@ services:
       "up"
     ]
 
+  seed:
+    image: postgres:15
+    container_name: seed
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    volumes:
+      - ./backend/seed:/seed
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "until pg_isready -h db -U ${POSTGRES_USER}; do
+        echo 'waiting for db...';
+        sleep 2;
+      done;
+
+      echo 'Running seed...';
+
+      PGPASSWORD=${POSTGRES_PASSWORD}
+      psql -h db -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f /seed/seed.sql;
+
+      echo 'Seed completed.'"
+      
   backend:
     build:
       context: ./backend
