@@ -4,17 +4,10 @@ import { z } from "zod";
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
-import { useMutation } from "@tanstack/react-query";
-import { authApi } from "../api/auth.api";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "../context/auth-context";
 
 const schema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -28,12 +21,8 @@ export default function RegisterPage() {
     const navigate = useNavigate();
 
     const [error, setError] = useState("");
-
-    const mutation = useMutation({
-        mutationFn: authApi.register,
-        onSuccess: () => navigate("/login"),
-        onError: (err: any) => setError(err.message),
-    });
+    const [loading, setLoading] = useState(false);
+    const { register: registerUser } = useAuth();
 
     const {
         register,
@@ -46,10 +35,13 @@ export default function RegisterPage() {
     const onSubmit = (data: FormData) => {
         try {
             setError("");
-            mutation.mutate(data);
-            navigate("/login")
+            setLoading(true);
+            registerUser(data.name, data.email, data.password);
+            navigate("/");
         } catch (err: any) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -66,10 +58,7 @@ export default function RegisterPage() {
                         className="space-y-4"
                     >
                         <div>
-                            <Input
-                                placeholder="Name"
-                                {...register("name")}
-                            />
+                            <Input placeholder="Name" {...register("name")} />
                             {errors.name && (
                                 <p className="text-sm text-red-500">
                                     {errors.name.message}
@@ -78,10 +67,7 @@ export default function RegisterPage() {
                         </div>
 
                         <div>
-                            <Input
-                                placeholder="Email"
-                                {...register("email")}
-                            />
+                            <Input placeholder="Email" {...register("email")} />
                             {errors.email && (
                                 <p className="text-sm text-red-500">
                                     {errors.email.message}
@@ -109,11 +95,9 @@ export default function RegisterPage() {
                         <Button
                             type="submit"
                             className="w-full cursor-pointer"
-                            disabled={mutation.isPending}
+                            disabled={loading}
                         >
-                            {mutation.isPending
-                                ? "Registering..."
-                                : "Register"}
+                            {loading ? "Registering..." : "Register"}
                         </Button>
                     </form>
 

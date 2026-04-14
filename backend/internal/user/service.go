@@ -14,7 +14,7 @@ import (
 )
 
 type Service interface {
-	Register(ctx context.Context, name, email, password string) error
+	Register(ctx context.Context, name, email, password string) (string, error)
 	Login(ctx context.Context, email, password string) (string, error)
 	GetAllUsers(ctx context.Context, search string) ([]User, error)
 }
@@ -29,14 +29,14 @@ func NewService(repo Repository, cfg *config.Config, log *slog.Logger) Service {
 	return &service{repo: repo, cfg: cfg, log: log}
 }
 
-func (s *service) Register(ctx context.Context, name, email, password string) error {
+func (s *service) Register(ctx context.Context, name, email, password string) (string, error) {
 	s.log.Info("Registering new user", "email", email, "name", name)
 
 	// hash password
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
 		s.log.Error("Failed to hash password", "error", err)
-		return err
+		return "", err
 	}
 
 	user := &User{
@@ -48,11 +48,24 @@ func (s *service) Register(ctx context.Context, name, email, password string) er
 	err = s.repo.Create(ctx, user)
 	if err != nil {
 		s.log.Error("Failed to create user", "error", err, "email", email)
-		return err
+		return "", err
 	}
 
-	s.log.Info("User registered successfully", "email", email)
-	return nil
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"email":   user.Email,
+		"name":    user.Name,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	})
+
+	tokenString, err := token.SignedString([]byte(s.cfg.JWTSecret))
+	if err != nil {
+		s.log.Error("Failed to sign JWT", "error", err, "email", email)
+		return "", err
+	}
+
+	s.log.Info("User logged in successfully", "email", email)
+	return tokenString, nil
 }
 
 func (s *service) Login(ctx context.Context, email, password string) (string, error) {

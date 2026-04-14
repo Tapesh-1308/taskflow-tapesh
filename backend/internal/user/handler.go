@@ -34,7 +34,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	err := h.service.Register(c, body.Name, body.Email, body.Password)
+	token, err := h.service.Register(c, body.Name, body.Email, body.Password)
 	if err != nil {
 		h.log.Error("Register failed", "error", err, "email", body.Email)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -44,7 +44,9 @@ func (h *Handler) Register(c *gin.Context) {
 	}
 
 	h.log.Info("User registered successfully", "email", body.Email)
-	c.Status(http.StatusCreated)
+	c.JSON(http.StatusCreated, gin.H{
+		"token": token,
+	})
 }
 
 func (h *Handler) GetAllUsers(c *gin.Context) {
